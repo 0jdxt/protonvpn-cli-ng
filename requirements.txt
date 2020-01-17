@@ -1,4 +1,0 @@
-# Call with pip install -r requirements.txt
-docopt
-requests
-pythondialog
