@@ -7,8 +7,8 @@ import json
 import subprocess
 import re
 import fileinput
-import getpass
 import random
+import ipaddress
 # External Libraries
 import requests
 # ProtonVPN-CLI functions
@@ -23,7 +23,7 @@ from .constants import (
 def call_api(endpoint, json_format=True, handle_errors=True):
     """Call to the ProtonVPN API."""
 
-    api_domain = "https://api.protonmail.ch"
+    api_domain = "https://api.protonvpn.ch"
     url = api_domain + endpoint
 
     headers = {
@@ -222,44 +222,8 @@ def wait_for_network(wait_time):
 
 
 def cidr_to_netmask(cidr):
-    netmask = "0"
-    cidr_netmask = {
-        1: "128.0.0.0",
-        2: "192.0.0.0",
-        3: "224.0.0.0",
-        4: "240.0.0.0",
-        5: "248.0.0.0",
-        6: "252.0.0.0",
-        7: "254.0.0.0",
-        8: "255.0.0.0",
-        9: "255.128.0.0",
-        10: "255.192.0.0",
-        11: "255.224.0.0",
-        12: "255.240.0.0",
-        13: "255.248.0.0",
-        14: "255.252.0.0",
-        15: "255.254.0.0",
-        16: "255.255.0.0",
-        17: "255.255.128.0",
-        18: "255.255.192.0",
-        19: "255.255.224.0",
-        20: "255.255.240.0",
-        21: "255.255.248.0",
-        22: "255.255.252.0",
-        23: "255.255.254.0",
-        24: "255.255.255.0",
-        25: "255.255.255.128",
-        26: "255.255.255.192",
-        27: "255.255.255.224",
-        28: "255.255.255.240",
-        29: "255.255.255.248",
-        30: "255.255.255.252",
-        31: "255.255.255.254",
-        32: "255.255.255.255",
-    }
-
-    netmask = cidr_netmask[cidr]
-    return netmask
+    subnet = ipaddress.IPv4Network("0.0.0.0/{0}".format(cidr))
+    return str(subnet.netmask)
 
 
 def make_ovpn_template():
@@ -359,7 +323,7 @@ def change_file_owner(path):
 
 def check_root():
     """Check if the program was executed as root and prompt the user."""
-    if getpass.getuser() != "root":
+    if os.geteuid() != 0:
         print(
             "[!] The program was not executed as root.\n"
             "[!] Please run as root."
@@ -375,7 +339,7 @@ def check_root():
                                    stderr=subprocess.PIPE)
             if not check.returncode == 0:
                 logger.debug("{0} not found".format(program))
-                print("'{0}' not found. \n".format(program),
+                print("'{0}' not found. \n".format(program) +
                       "Please install {0}.".format(program))
                 sys.exit(1)
 
@@ -481,7 +445,7 @@ def check_init(check_props=True):
                     get_config_value("USER", prop)
                 except KeyError:
                     print(
-                        "[!] {0} is missing from configuration.\n".format(prop), # noqa
+                        "[!] {0} is missing from configuration.\n".format(prop) + # noqa
                         "[!] Please run 'protonvpn configure' to set it."
                     )
                     logger.debug(

@@ -190,7 +190,7 @@ def country_f(country_code, protocol=None):
 
     if len(server_pool) == 0:
         print(
-            "[!] No Server in country {0} found\n".format(country_code),
+            "[!] No Server in country {0} found\n".format(country_code) +
             "[!] Please choose a valid country"
         )
         logger.debug("No server in country {0}".format(country_code))
@@ -262,7 +262,7 @@ def direct(user_input, protocol=None):
                      "{0}".format('-' + tor if tor is not None else '')
     else:
         print(
-            "[!] '{0}' is not a valid servername\n".format(user_input),
+            "[!] '{0}' is not a valid servername\n".format(user_input) +
             "[!] Please enter a valid servername"
         )
         logger.debug("'{0}' is not a valid servername'".format(user_input))
@@ -393,16 +393,7 @@ def status():
 
     servers = get_servers()
 
-    subs = [s["Servers"] for s in servers if s["Name"] == connected_server][0]
-    server_ips = [subserver["ExitIP"] for subserver in subs]
-
     ip, isp = get_ip_info()
-
-    if ip not in server_ips:
-        logger.debug("IP not found in connected_server IPs")
-        print("[!] Your IP was not found in last Servers IPs\n"
-              "[!] Maybe you're not connected to a ProtonVPN Server")
-        sys.exit(1)
 
     # Collect Information
     all_features = {0: "Normal", 1: "Secure-Core", 2: "Tor", 4: "P2P"}
