@@ -1,5 +1,5 @@
 [package]
-name = "protonvpn-cli-ng"
+name = "protonvpn-rs"
 version = "0.1.0"
 authors = ["0jdxt <jytrn@protonmail.com>"]
 edition = "2018"
@@ -9,18 +9,22 @@ repository = "https://github.com/0jdxt/protonvpn-cli-ng/tree/master/protonvpn_cl
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+clap = "2.33.0"
 lazy_static = "1.4.0"
 dirs = "2.0.2"
-clap = "2.33.0"
-toml = "0.5.5"
-serde = "1.0.104"
-serde_derive = "1.0.104"
+serde = { version = "1.0.104", features = ["derive"] }
+serde_json = "1.0.45"
 rust-ini = "0.14.0"
-regex = "1.3.3"
-serde_json = "1.0.44"
-hyper = "0.13.1"
+regex = "1.3.4"
+hyper = "0.13.2"
 anyhow = "1.0.26"
 users = "0.9.1"
 nix = "0.16.1"
 rand = "0.7.3"
-tokio = { version = "0.2.9", features = ["full"] }
+tokio = { version = "0.2.11", features = ["full"] }
+serde_repr = "0.1.5"
+hyper-tls = "0.4.1"
+maplit = "1.0.2"
+chrono = "0.4.10"
+crc = "1.8.1"
+terminal_size = "0.1.10"
