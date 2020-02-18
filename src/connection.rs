@@ -1,4 +1,7 @@
-use crate::constants::{OVPN_FILE, OVPN_LOG_FILE, PASSFILE, TEMPLATE_FILE};
+use crate::constants::{
+    IP6TABLES_BACKUP, IPTABLES_BACKUP, IPV6_BACKUP, OVPN_FILE, OVPN_LOG_FILE, PASSFILE,
+    RESOLVCONF_BACKUP, TEMPLATE_FILE,
+};
 use crate::utils::{self, Feature};
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
@@ -170,16 +173,14 @@ pub(crate) fn disconnect(passed: bool) -> Result<()> {
 
 pub(crate) async fn status() -> Result<()> {
     utils::check_init(true);
-    let backup = crate::config_dir!("iptables.backup");
 
     if !utils::is_connected()? {
         println!("Status:     Disconnected");
-        if backup.is_file() {
+        if IPTABLES_BACKUP.is_file() {
             eprintln!("[!] Kill Switch is currently active");
         } else {
             let (ip, isp) = utils::get_ip_info().await?;
-            println!("IP:         {}", ip);
-            println!("ISP:        {}", isp);
+            println!("{:<12}{}\n{:<12}{}", "IP:", ip, "ISP:", isp);
         }
         return Ok(());
     }
@@ -190,12 +191,7 @@ pub(crate) async fn status() -> Result<()> {
         ($value:expr) => {
             match utils::get_config_value("metadata", $value) {
                 Some(value) => value,
-                None => {
-                    return Err(anyhow!(
-                        "It looks like there was never a connection: {}",
-                        $value
-                    ))
-                }
+                None => anyhow::bail!("It looks like there was never a connection: {}", $value),
             };
         };
     }
@@ -231,7 +227,7 @@ pub(crate) async fn status() -> Result<()> {
     let connection_time =
         utils::time() - u64::from_str_radix(&last_connect, 10).expect("time to u64");
 
-    let killswitch_status = if backup.is_file() {
+    let killswitch_status = if IPTABLES_BACKUP.is_file() {
         "Enabled"
     } else {
         "Disabled"
@@ -369,7 +365,7 @@ enum DnsMode {
     Restore,
 }
 fn manage_dns(mode: &DnsMode, dns_server: Option<&str>) -> Result<()> {
-    let backup = crate::config_dir!("resolv.conf.backup");
+    let backup = RESOLVCONF_BACKUP.as_path();
     let resolvconf = std::path::Path::new("/etc/resolv.conf");
     match mode {
         DnsMode::LeakProtection => {
@@ -450,8 +446,8 @@ enum Ipv6Mode {
     LegacyRestore,
 }
 fn manage_ipv6(mode: &Ipv6Mode) {
-    let ipv6_backup = crate::config_dir!("ipv6.backup");
-    let ip6tables_backup = crate::config_dir!("ip6tables.backup");
+    let ipv6_backup = IPV6_BACKUP.as_path();
+    let ip6tables_backup = IP6TABLES_BACKUP.as_path();
 
     match mode {
         Ipv6Mode::Disable => {
@@ -527,11 +523,11 @@ enum KillSwitchMode {
     Enable,
 }
 fn manage_killswitch(mode: &KillSwitchMode, _protocol: Option<&str>, _port: Option<&u32>) {
-    let backup = crate::config_dir!("iptables.backup");
+    let backup = IPTABLES_BACKUP.as_path();
     match mode {
         KillSwitchMode::Restore => {
             if backup.is_file() {
-                let file = fs::File::open(&backup).expect("couldnt open backup file");
+                let file = fs::File::open(backup).expect("couldnt open backup file");
                 Command::new("iptables-restore")
                     .stdin(file)
                     .output()
