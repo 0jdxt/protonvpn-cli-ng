@@ -1,10 +1,8 @@
-use dirs::home_dir;
 use lazy_static::lazy_static;
 use maplit::hashmap;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[macro_export]
 macro_rules! config_dir {
     ($file:expr) => {{
         let mut p = crate::constants::CONFIG_DIR.clone();
@@ -14,12 +12,23 @@ macro_rules! config_dir {
 }
 
 lazy_static! {
+    //
     pub static ref USER: String = std::env::var("SUDO_USER")
-        .or_else(|_| users::get_effective_username()
-            .expect("no current user")
-            .into_string())
-        .expect("user into string");
-    pub static ref HOME_DIR: PathBuf = home_dir().expect("Could not find user home directory");
+        .or_else(|_| std::env::var("LOGNAME"))
+        .or_else(|_| std::env::var("USER"))
+        .or_else(|_| std::env::var("LNAME"))
+        .or_else(|_| std::env::var("USERNAME"))
+        .expect("no current user");
+    pub static ref HOME_DIR: PathBuf = {
+        let lines = std::fs::read_to_string("/etc/passwd").unwrap();
+        for ln in lines.split('\n') {
+            let mut parts = ln.split(':');
+            if *ln.split(':').next().unwrap() == *USER {
+                return PathBuf::from(parts.nth(5).unwrap());
+            }
+        }
+        panic!("user {:?} not found in /etc/passwd", *USER);
+    };
     pub static ref CONFIG_DIR: PathBuf = {
         let mut p = HOME_DIR.clone();
         p.push(".pvpn-cli");
@@ -32,6 +41,10 @@ lazy_static! {
     pub static ref OVPN_FILE: PathBuf = config_dir!("connect.ovpn");
     pub static ref PASSFILE: PathBuf = config_dir!("pvpnpass");
     pub static ref OVPN_LOG_FILE: PathBuf = config_dir!("ovpn.log");
+    pub static ref IPTABLES_BACKUP: PathBuf = config_dir!("iptables.backup");
+    pub static ref RESOLVCONF_BACKUP: PathBuf = config_dir!("resolv.conf");
+    pub static ref IPV6_BACKUP: PathBuf = config_dir!("ipv6.backup");
+    pub static ref IP6TABLES_BACKUP: PathBuf = config_dir!("ip6tables.backup");
     pub static ref COUNTRY_CODES: HashMap<&'static str, &'static str> = hashmap! {
         "BD" => "Bangladesh",
         "BE" => "Belgium",
