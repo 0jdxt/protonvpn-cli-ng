@@ -9,6 +9,7 @@ import re
 import fileinput
 import random
 import ipaddress
+import math
 # External Libraries
 import requests
 # ProtonVPN-CLI functions
@@ -420,7 +421,7 @@ def check_update():
         )
 
 
-def check_init(check_props=True):
+def check_init():
     """Check if a profile has been initialized, quit otherwise."""
 
     try:
@@ -431,27 +432,33 @@ def check_init(check_props=True):
             )
             logger.debug("Initialized Profile not found")
             sys.exit(1)
-        elif check_props:
-            # Check if required properties are set.
-            # This is to ensure smooth updates so the user can be warned
-            # when a property is missing and can be ordered
-            # to run `protonvpn configure` or something else.
+        else:
+            # Check if required configuration values are set
+            # If this isn't the case it will set a default value
 
-            required_props = ["username", "tier", "default_protocol",
-                              "dns_leak_protection", "custom_dns"]
+            default_conf = {
+                "USER": {
+                    "username": "username",
+                    "tier": "0",
+                    "default_protocol": "udp",
+                    "dns_leak_protection": "1",
+                    "custom_dns": "None",
+                    "check_update_interval": "3",
+                    "killswitch": "0",
+                    "split_tunnel": "0",
+                },
+            }
 
-            for prop in required_props:
-                try:
-                    get_config_value("USER", prop)
-                except KeyError:
-                    print(
-                        "[!] {0} is missing from configuration.\n".format(prop) + # noqa
-                        "[!] Please run 'protonvpn configure' to set it."
-                    )
-                    logger.debug(
-                        "{0} is missing from configuration".format(prop)
-                    )
-                    sys.exit(1)
+            for section in default_conf:
+                for config_key in default_conf[section]:
+                    try:
+                        get_config_value(section, config_key)
+                    except KeyError:
+                        logger.debug("Config {0}/{1} not found, default set"
+                                     .format(section, config_key))
+                        set_config_value(section, config_key,
+                                         default_conf[section][config_key])
+
     except KeyError:
         print(
             "[!] There has been no profile initialized yet. "
@@ -475,3 +482,38 @@ def is_valid_ip(ipaddr):
 
     else:
         return False
+
+
+def get_transferred_data():
+    """Reads and returns the amount of data transferred during a session
+    from the /sys/ directory"""
+
+    def convert_size(size_bytes):
+        """Converts byte amounts into human readable formats"""
+        if size_bytes == 0:
+            return "0B"
+        size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+
+        i = int(math.floor(math.log(size_bytes, 1000)))
+        p = math.pow(1000, i)
+        s = round(size_bytes / p, 2)
+        return "{0} {1}".format(s, size_name[i])
+
+    base_path = "/sys/class/net/{0}/statistics/{1}"
+
+    if os.path.isfile(base_path.format('proton0', 'rx_bytes')):
+        adapter_name = 'proton0'
+    elif os.path.isfile(base_path.format('tun0', 'rx_bytes')):
+        adapter_name = 'tun0'
+    else:
+        logger.debug("No usage stats for VPN interface available")
+        return '-', '-'
+
+    # Get transmitted and received bytes from /sys/ directory
+    with open(base_path.format(adapter_name, 'tx_bytes'), "r") as f:
+        tx_bytes = int(f.read())
+
+    with open(base_path.format(adapter_name, 'rx_bytes'), "r") as f:
+        rx_bytes = int(f.read())
+
+    return convert_size(tx_bytes), convert_size(rx_bytes)
