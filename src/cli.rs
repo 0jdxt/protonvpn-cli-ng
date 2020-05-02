@@ -42,7 +42,7 @@ pub async fn cli() -> Result<()> {
         ("init", _) => init_cli(),
         ("connect", Some(matches)) => {
             utils::check_root()?;
-            utils::check_init(true);
+            utils::check_init();
 
             let wait =
                 std::env::var("PVPN_WAIT").map_or(0, |v| u64::from_str_radix(&v, 10).unwrap());
@@ -72,18 +72,18 @@ pub async fn cli() -> Result<()> {
         }
         ("reconnect", _) => {
             utils::check_root()?;
-            utils::check_init(true);
+            utils::check_init();
             connection::reconnect().await
         }
         ("disconnect", _) => {
             utils::check_root()?;
-            utils::check_init(true);
+            utils::check_init();
             connection::disconnect(false)
         }
         ("status", _) => connection::status().await,
         ("configure", _) => {
             utils::check_root()?;
-            utils::check_init(false);
+            utils::check_init();
             utils::configure_cli();
             Ok(())
         }

@@ -12,13 +12,15 @@ macro_rules! config_dir {
 }
 
 lazy_static! {
-    //
+    // look through env vars for user
     pub static ref USER: String = std::env::var("SUDO_USER")
         .or_else(|_| std::env::var("LOGNAME"))
         .or_else(|_| std::env::var("USER"))
         .or_else(|_| std::env::var("LNAME"))
         .or_else(|_| std::env::var("USERNAME"))
         .expect("no current user");
+
+    // get home directory from /etc/passwd
     pub static ref HOME_DIR: PathBuf = {
         let lines = std::fs::read_to_string("/etc/passwd").unwrap();
         for ln in lines.split('\n') {

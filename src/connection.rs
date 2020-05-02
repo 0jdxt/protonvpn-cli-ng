@@ -20,7 +20,7 @@ pub(crate) async fn dialog() -> Result<()> {
 pub(crate) async fn random_c(protocol: &str) -> Result<()> {
     let servers = utils::get_servers();
     let servername = servers.choose(&mut rand::thread_rng()).unwrap();
-    openvpn_connect(&servername.Name, protocol).await
+    openvpn_connect(&servername.name, protocol).await
 }
 
 pub(crate) async fn fastest(protocol: &str) -> Result<()> {
@@ -30,10 +30,10 @@ pub(crate) async fn fastest(protocol: &str) -> Result<()> {
     let servers = utils::get_servers();
     let mut pool = servers
         .into_iter()
-        .filter(|s| ![Feature::SecureCore, Feature::Tor].contains(&s.Features))
+        .filter(|s| ![Feature::SecureCore, Feature::Tor].contains(&s.features))
         .collect::<Vec<_>>();
     let fastest_server = utils::get_fastest_server(&mut pool);
-    openvpn_connect(&fastest_server.Name, protocol).await
+    openvpn_connect(&fastest_server.name, protocol).await
 }
 
 pub(crate) async fn country_f(country_code: &str, protocol: &str) -> Result<()> {
@@ -43,13 +43,13 @@ pub(crate) async fn country_f(country_code: &str, protocol: &str) -> Result<()> 
     let mut pool = servers
         .into_iter()
         .filter(|s| {
-            ![Feature::SecureCore, Feature::Tor].contains(&s.Features)
-                && s.ExitCountry == country_code
+            ![Feature::SecureCore, Feature::Tor].contains(&s.features)
+                && s.exit_country == country_code
         })
         .collect::<Vec<_>>();
 
     let fastest_server = utils::get_fastest_server(&mut pool);
-    openvpn_connect(&fastest_server.Name, protocol).await
+    openvpn_connect(&fastest_server.name, protocol).await
 }
 
 pub(crate) async fn feature_f(feature: Feature, protocol: &str) -> Result<()> {
@@ -58,11 +58,11 @@ pub(crate) async fn feature_f(feature: Feature, protocol: &str) -> Result<()> {
     let servers = utils::get_servers();
     let mut pool = servers
         .into_iter()
-        .filter(|s| s.Features == feature)
+        .filter(|s| s.features == feature)
         .collect::<Vec<_>>();
 
     let fastest_server = utils::get_fastest_server(&mut pool);
-    openvpn_connect(&fastest_server.Name, protocol).await
+    openvpn_connect(&fastest_server.name, protocol).await
 }
 
 pub(crate) async fn direct(input: &str, protocol: &str) -> Result<()> {
@@ -172,7 +172,7 @@ pub(crate) fn disconnect(passed: bool) -> Result<()> {
 }
 
 pub(crate) async fn status() -> Result<()> {
-    utils::check_init(true);
+    utils::check_init();
 
     if !utils::is_connected()? {
         println!("Status:     Disconnected");
@@ -217,11 +217,11 @@ pub(crate) async fn status() -> Result<()> {
     let (ip, _isp) = utils::get_ip_info().await?;
 
     let connected_server = utils::get_server_value(&connected_server, &servers).unwrap();
-    let country_code = &connected_server.ExitCountry;
+    let country_code = &connected_server.exit_country;
     let country = utils::get_country_name(country_code);
-    let city = &connected_server.City;
-    let load = &connected_server.Load;
-    let feature = &connected_server.Features;
+    let city = &connected_server.city;
+    let load = &connected_server.load;
+    let feature = &connected_server.features;
     let last_connect =
         utils::get_config_value("metadata", "connected_time").expect("no connected_time");
     let connection_time =
@@ -245,7 +245,7 @@ pub(crate) async fn status() -> Result<()> {
     status_line!(Status, "Connected");
     status_line!(Time, connection_time);
     status_line!(IP, ip);
-    status_line!(Server, connected_server.Name);
+    status_line!(Server, connected_server.name);
     status_line!(Features, feature);
     status_line!(Protocol, connected_protocol);
     status_line!(KillSwitch, killswitch_status);
@@ -268,8 +268,8 @@ pub(crate) async fn openvpn_connect(servername: &str, protocol: &str) -> Result<
     let servers = utils::get_servers();
     let subs = &utils::get_server_value(servername, &servers)
         .unwrap()
-        .Servers;
-    let ip_list = subs.iter().map(|s| &s.EntryIP).collect::<Vec<_>>();
+        .servers;
+    let ip_list = subs.iter().map(|s| &s.entry_ip).collect::<Vec<_>>();
 
     let mut config = format!("\n\nproto {}\n", protocol);
     for &ip in ip_list {

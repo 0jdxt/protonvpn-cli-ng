@@ -72,33 +72,35 @@ pub(crate) async fn pull_server_data(force: bool) -> Result<()> {
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 struct Logicals {
-    pub Code: u32,
-    pub LogicalServers: Vec<LogicalServer>,
+    pub code: u32,
+    pub logical_servers: Vec<LogicalServer>,
 }
 
-#[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub(crate) struct LogicalServer {
-    pub Name: String,
-    pub EntryCountry: String,
-    pub ExitCountry: String,
-    pub Domain: String,
-    pub Tier: Tier,
-    pub Features: Feature,
-    pub Region: Option<String>,
-    pub City: Option<String>,
-    pub ID: String,
-    pub Location: Location,
-    pub Status: u8,
-    pub Servers: Vec<Server>,
-    pub Load: u8,
-    pub Score: f64,
+    pub name: String,
+    pub entry_country: String,
+    pub exit_country: String,
+    pub domain: String,
+    pub tier: Tier,
+    pub features: Feature,
+    pub region: Option<String>,
+    pub city: Option<String>,
+    #[serde(rename = "ID")]
+    pub id: String,
+    pub location: Location,
+    pub status: u8,
+    pub servers: Vec<Server>,
+    pub load: u8,
+    pub score: f64,
 }
 
 impl PartialOrd for LogicalServer {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.Score.partial_cmp(&other.Score)
+        self.score.partial_cmp(&other.score)
     }
 }
 
@@ -110,7 +112,7 @@ impl Ord for LogicalServer {
 
 impl PartialEq for LogicalServer {
     fn eq(&self, other: &Self) -> bool {
-        self.Name == other.Name
+        self.name == other.name
     }
 }
 impl Eq for LogicalServer {}
@@ -149,21 +151,24 @@ impl From<u8> for Tier {
     }
 }
 
-#[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub(crate) struct Server {
-    pub EntryIP: Ipv4Addr,
-    pub ExitIP: Ipv4Addr,
-    pub Domain: String,
-    pub ID: String,
-    pub Status: u8,
+    #[serde(rename = "EntryIP")]
+    pub entry_ip: Ipv4Addr,
+    #[serde(rename = "ExitIP")]
+    pub exit_ip: Ipv4Addr,
+    pub domain: String,
+    #[serde(rename = "ID")]
+    pub id: String,
+    pub status: u8,
 }
 
-#[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub(crate) struct Location {
-    pub Lat: f64,
-    pub Long: f64,
+    pub lat: f64,
+    pub long: f64,
 }
 
 pub(crate) fn get_servers() -> Vec<LogicalServer> {
@@ -176,9 +181,9 @@ pub(crate) fn get_servers() -> Vec<LogicalServer> {
     let tier = Tier::from(tier);
 
     server_data
-        .LogicalServers
+        .logical_servers
         .into_iter()
-        .filter(|s| s.Tier <= tier && s.Status == 1)
+        .filter(|s| s.tier <= tier && s.status == 1)
         .collect()
 }
 
@@ -186,7 +191,7 @@ pub(crate) fn get_server_value<'s>(
     servername: &str,
     servers: &'s [LogicalServer],
 ) -> Option<&'s LogicalServer> {
-    servers.iter().find(|s| s.Name == servername)
+    servers.iter().find(|s| s.name == servername)
 }
 
 pub(crate) fn get_config_value(group: &str, key: &str) -> Option<String> {
@@ -317,24 +322,24 @@ pub(crate) fn check_update() {
 }
 
 /// Default: true
-pub(crate) fn check_init(check_props: bool) {
+pub(crate) fn check_init() {
     match get_config_value("USER", "initialized") {
-        Some(x) if x != "0" => {
-            if check_props {
-                let required_props = &[
-                    "username",
-                    "tier",
-                    "default_protocol",
-                    "dns_leak_protection",
-                    "custom_dns",
-                ];
+        Some(x) if x == "0" => {
+            let required_props = &[
+                "username",
+                "tier",
+                "default_protocol",
+                "dns_leak_protection",
+                "custom_dns",
+            ];
 
-                for prop in required_props {
-                    if get_config_value("USER", prop).is_none() {
-                        println!("[!] {} is missing from configuration.", prop);
-                        println!("[!] Please run 'protonvpn configure' to set it.");
-                        std::process::exit(1);
-                    }
+            // TODO: check initialisation
+
+            for prop in required_props {
+                if get_config_value("USER", prop).is_none() {
+                    println!("[!] {} is missing from configuration.", prop);
+                    println!("[!] Please run 'protonvpn configure' to set it.");
+                    std::process::exit(1);
                 }
             }
         }
@@ -387,7 +392,7 @@ mod tests {
     #[test]
     fn test_default_nic() {
         let nic = get_default_nic().unwrap();
-        assert!(["wlan0", "eth0"].contains(&&nic[..]))
+        assert!(["enp9s0", "wlp8s0"].contains(&&nic[..]))
     }
 
     #[test]
