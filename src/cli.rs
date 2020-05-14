@@ -84,12 +84,12 @@ pub async fn cli() -> Result<()> {
         ("configure", _) => {
             utils::check_root()?;
             utils::check_init();
-            utils::configure_cli();
+            configure_cli();
             Ok(())
         }
         ("refresh", _) => {
             utils::pull_server_data(true).await?;
-            utils::make_ovpn_template();
+            utils::make_ovpn_template().await?;
             Ok(())
         }
         ("examples", _) => {
@@ -166,6 +166,29 @@ fn init_cli() -> Result<()> {
     // etc.
 
     Ok(())
+}
+
+pub(crate) fn configure_cli() {
+    let stdin = std::io::stdin();
+
+    loop {
+        println!(
+            r"What do you want to change?
+
+            1) Username and Password
+            2) ProtonVPN Plan
+            3) Default Protocol
+            4) DNS Management
+            5) Kill Switch
+            6) Split Tunneling
+            7) Purge Configuration"
+        );
+
+        let mut choice = String::with_capacity(1);
+        stdin.read_line(&mut choice).expect("readline from stdin");
+
+        todo!("implement config cli");
+    }
 }
 
 #[test]

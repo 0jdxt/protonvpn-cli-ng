@@ -1,4 +1,6 @@
-use crate::constants::{CONFIG_FILE, COUNTRY_CODES, SERVER_INFO_FILE};
+use crate::constants::{
+    CONFIG_FILE, COUNTRY_CODES, SERVER_INFO_FILE, SPLIT_TUNNEL_FILE, TEMPLATE_FILE,
+};
 use crate::utils;
 
 use anyhow::{anyhow, Result};
@@ -7,6 +9,7 @@ use hyper::{Body, Client, Request, Uri};
 use hyper_tls::HttpsConnector;
 use ini::Ini;
 use lazy_static::lazy_static;
+use maplit::hashmap;
 use nix::unistd::{self, Gid, Uid};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
@@ -70,7 +73,6 @@ pub(crate) async fn pull_server_data(force: bool) -> Result<()> {
     Ok(())
 }
 
-#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct Logicals {
@@ -152,15 +154,16 @@ impl From<u8> for Tier {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
 pub(crate) struct Server {
     #[serde(rename = "EntryIP")]
     pub entry_ip: Ipv4Addr,
     #[serde(rename = "ExitIP")]
     pub exit_ip: Ipv4Addr,
+    #[serde(rename = "Domain")]
     pub domain: String,
     #[serde(rename = "ID")]
     pub id: String,
+    #[serde(rename = "Status")]
     pub status: u8,
 }
 
@@ -208,22 +211,24 @@ pub(crate) fn set_config_value(group: &str, key: &str, value: &str) {
         .set(key, value);
 }
 
-#[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 struct VpnLocation {
-    Code: i32,
-    IP: Ipv4Addr,
-    Lat: f64,
-    Long: f64,
-    Country: String,
-    ISP: String,
+    code: i32,
+    #[serde(rename = "ID")]
+    ip: Ipv4Addr,
+    lat: f64,
+    long: f64,
+    country: String,
+    #[serde(rename = "ISP")]
+    isp: String,
 }
 
 pub(crate) async fn get_ip_info() -> Result<(Ipv4Addr, String)> {
     let ip_info = call_api("/vpn/location").await?;
     let info = String::from_utf8(ip_info.into_iter().collect())?;
     let loc_info: VpnLocation = serde_json::from_str(&info)?;
-    Ok((loc_info.IP, loc_info.ISP))
+    Ok((loc_info.ip, loc_info.isp))
 }
 
 pub(crate) fn get_country_name(code: &str) -> &str {
@@ -281,6 +286,81 @@ pub(crate) async fn wait_for_network(wait_time: u64) -> Result<()> {
     }
 }
 
+pub(crate) fn cidr_to_netmask(cidr: &str) -> Ipv4Addr {
+    //               | buffer  | netmask |
+    let mask: u64 = 0xffff_ffff_0000_0000;
+    let n: u32 = cidr.parse().expect("cidr should be number");
+    // shift bits into netmask section and extract netmask bytes
+    let x = ((mask >> n) & 0xffff_ffff) as u32;
+    x.into()
+}
+
+pub(crate) async fn make_ovpn_template() -> anyhow::Result<()> {
+    pull_server_data(false).await?;
+
+    let server_json =
+        fs::read_to_string(SERVER_INFO_FILE.as_path()).expect("server info file read");
+    let server_data: Logicals = serde_json::from_str(&server_json).unwrap();
+
+    let server_id = &server_data.logical_servers[0].id;
+    let resp = call_api(&format!(
+        "/vpn/config?Platform=linux&LogicalID={}&protocol=tcp",
+        server_id
+    ))
+    .await?;
+
+    fs::write(TEMPLATE_FILE.as_path(), resp).expect("write to template");
+
+    let split = match get_config_value("USER", "split_tunnel") {
+        Some(x) => x == "1",
+        _ => false,
+    };
+
+    if split {
+        println!("[!] writing split tunnel config");
+        let content =
+            fs::read_to_string(SPLIT_TUNNEL_FILE.as_path()).expect("read split tunnel file");
+        for line in content.lines() {
+            let line = line.trim_end();
+
+            if !is_valid_ip(line) {
+                println!("[!] {:?} is invalid, skipped.", line);
+                continue;
+            }
+
+            let mut netmask = Ipv4Addr::BROADCAST;
+            let ip = if let Some(i) = line.find('/') {
+                let (ip, cidr) = line.split_at(i);
+                netmask = cidr_to_netmask(cidr);
+                ip
+            } else {
+                line
+            };
+
+            if is_valid_ip(ip) {
+                let ln = format!("\nroute {} {} net_gateway", ip, netmask);
+                fs::write(SPLIT_TUNNEL_FILE.as_path(), &ln).expect("write to split tunnel file.");
+            } else {
+                println!("[!] {:?} is invalid, skipped.", line);
+                continue;
+            }
+        }
+        println!("[!] split tunnel written");
+    }
+
+    let rm_regex = Regex::new(r"^(remote|proto|up|down|script-security) .*$").unwrap();
+    let temp_file = fs::read_to_string(TEMPLATE_FILE.as_path()).expect("reading template");
+    let filtered: String = temp_file
+        .lines()
+        .filter(|ln| !rm_regex.is_match(ln))
+        .collect();
+    fs::write(TEMPLATE_FILE.as_path(), filtered).expect("writing template");
+
+    change_file_owner(TEMPLATE_FILE.as_path())?;
+
+    Ok(())
+}
+
 pub(crate) fn change_file_owner(path: &std::path::Path) -> Result<()> {
     let curr_owner = fs::metadata(path)?.st_uid();
     let u_id = users::get_effective_uid();
@@ -294,7 +374,7 @@ pub(crate) fn change_file_owner(path: &std::path::Path) -> Result<()> {
 }
 
 pub(crate) fn check_root() -> Result<()> {
-    let user = env::var("LOGNAME").or_else(|_| env::var("NAME"))?;
+    let user = env::var("LOGNAME").or(env::var("NAME"))?;
     if user != "root" {
         println!("[!] The program was not executed as root.\n[!] Please run as root.");
         std::process::exit(1);
@@ -321,25 +401,24 @@ pub(crate) fn check_update() {
     todo!("check for update")
 }
 
-/// Default: true
 pub(crate) fn check_init() {
     match get_config_value("USER", "initialized") {
-        Some(x) if x == "0" => {
-            let required_props = &[
-                "username",
-                "tier",
-                "default_protocol",
-                "dns_leak_protection",
-                "custom_dns",
-            ];
+        Some(x) if x != "0" => {
+            let default_props = hashmap! {
+                "username" => "username",
+                "tier" => "0",
+                "default_protocol" => "udp",
+                "dns_leak_protection" => "1",
+                "custom_dns" => "None",
+                "check_update_interval" => "3",
+                "killswitch" => "0",
+                "split_tunnel" => "0"
+            };
 
-            // TODO: check initialisation
-
-            for prop in required_props {
+            for (prop, val) in default_props {
                 if get_config_value("USER", prop).is_none() {
-                    println!("[!] {} is missing from configuration.", prop);
-                    println!("[!] Please run 'protonvpn configure' to set it.");
-                    std::process::exit(1);
+                    set_config_value("USER", prop, val);
+                    println!("[!] USER/{} not found, default set", prop);
                 }
             }
         }
@@ -366,12 +445,54 @@ fn is_valid_ip(ipaddr: &str) -> bool {
     RE.is_match(ipaddr)
 }
 
-pub(crate) fn make_ovpn_template() {
-    todo!("make ovpn template");
+fn convert_bytes(num: u64) -> String {
+    // convert
+    if num == 0 {
+        "0B".into()
+    } else {
+        let units = ["B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+        let i = (num as f64).log(1000.);
+        let p = 1000_u64.pow(i as u32);
+        let s = num / p;
+        format!("{} {}", s, units[i as usize])
+    }
 }
 
-pub(crate) fn configure_cli() {
-    todo!("config cli")
+pub(crate) fn get_transferred_data() -> (String, String) {
+    // interpolate device and file
+    macro_rules! net_int {
+        ($d:expr, $f:expr) => {{
+            format!("/sys/class/net/{}/statistics/{}", $d, $f)
+                .parse::<std::path::PathBuf>()
+                .expect("path from str")
+        }};
+    }
+
+    let adapter = if net_int!("proton0", "rx_bytes").is_file() {
+        "proton0"
+    } else if net_int!("tun0", "rx_bytes").is_file() {
+        "tun0"
+    } else {
+        println!("[!] No usage stats for VPN interface available");
+        return ("-".into(), "-".into());
+    };
+
+    macro_rules! bytes {
+        ($s:expr) => {{
+            match fs::read_to_string(net_int!(adapter, $s)) {
+                Ok(s) => convert_bytes(
+                    s.parse()
+                        .expect("file must contain integer number of bytes"),
+                ),
+                Err(e) => {
+                    println!("[!] Error reading stats: {}", e);
+                    "-".into()
+                }
+            }
+        }};
+    };
+
+    (bytes!("tx_bytes"), bytes!("rx_bytes"))
 }
 
 #[cfg(test)]
@@ -380,13 +501,8 @@ mod tests {
 
     #[test]
     fn test_ip_regex() {
-        assert!(is_valid_ip("192.168.0.1"))
-    }
-
-    #[test]
-    fn test_check_init() {
-        check_init(false);
-        check_init(true);
+        assert!(is_valid_ip("192.168.0.1"));
+        assert!(is_valid_ip("0.0.0.0/24"));
     }
 
     #[test]
@@ -396,8 +512,24 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn test_connected() {
-        assert!(is_connected().unwrap());
+    fn test_cidr_netmask() {
+        let cases = hashmap! {
+            "0"  => Ipv4Addr::UNSPECIFIED,
+            "1"  => [128, 0, 0, 0].into(),
+            "2"  => [192, 0, 0, 0].into(),
+            "10" => [255, 192, 0, 0].into(),
+            "11" => [255, 224, 0, 0].into(),
+            "12" => [255, 240, 0, 0].into(),
+            "20" => [255, 255, 240, 0].into(),
+            "21" => [255, 255, 248, 0].into(),
+            "22" => [255, 255, 252, 0].into(),
+            "30" => [255, 255, 255, 252].into(),
+            "31" => [255, 255, 255, 254].into(),
+            "32" => [255, 255, 255, 255].into(),
+        };
+
+        for (val, exp) in cases {
+            assert_eq!(cidr_to_netmask(val), exp);
+        }
     }
 }

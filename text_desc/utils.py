@@ -18,7 +18,6 @@ def get_servers():
     # tier <= user_tier
     pass
 
-
 def get_server_value(servername, key, servers):
     """Return the value of a key for a given server."""
     pass

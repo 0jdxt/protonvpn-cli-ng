@@ -513,7 +513,65 @@ fn manage_ipv6(mode: &Ipv6Mode) {
                 // NOTE: no backup found
             }
         }
-        Ipv6Mode::LegacyRestore => todo!("tried to legacy restore Ipv6"),
+        Ipv6Mode::LegacyRestore => {
+            println!("Restoring IPv6");
+            let (default_nic, ipv6_addr) = match File::open(IPV6_BACKUP.as_path()) {
+                Ok(f) => {
+                    let mut lines = BufReader::new(f).lines();
+                    (
+                        lines.next().unwrap().unwrap(),
+                        lines.next().unwrap().unwrap(),
+                    )
+                }
+                Err(_) => {
+                    return;
+                }
+            };
+
+            let has_ipv6: bool = {
+                let cmd_out = Command::new("ip")
+                    .args(&["addr", "show", "dev", &default_nic])
+                    .output()
+                    .expect("ip should be in $PATH");
+
+                let output =
+                    String::from_utf8(cmd_out.stdout).expect("invalid UTF-8 in `ip` output");
+
+                let re = Regex::new(r"<inet6.*global>").unwrap();
+                output.lines().any(|ln| ln.contains(&re))
+            };
+
+            if has_ipv6 {
+                // NOTE: ipv6 address present
+                fs::remove_file(IPV6_BACKUP.as_path()).unwrap();
+                return;
+            }
+
+            let ipv6_enable = Command::new("sysctl")
+                .args(&[
+                    "-w",
+                    &format!("net.ipv6.conf.{}.disable_ipv6=0", default_nic),
+                ])
+                .output()
+                .unwrap();
+            if !ipv6_enable.status.success() {
+                println!("[!] There was an error with restoring the IPv6 configuration");
+                // NOTE: debug log stdout and stderr
+                return;
+            }
+
+            let ipv6_restore_address = Command::new("ip")
+                .args(&["addr", "add", &ipv6_addr, "dev", &default_nic])
+                .output()
+                .expect("`ip` should be executable");
+            if !ipv6_restore_address.status.success() {
+                println!("[!] There was an error with restoring the IPv6 configuration");
+                // NOTE: debug log stdout and stderr
+                return;
+            }
+
+            fs::remove_file(IPV6_BACKUP.as_path()).unwrap();
+        }
     }
 }
 
