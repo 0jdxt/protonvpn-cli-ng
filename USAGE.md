@@ -7,16 +7,19 @@ This document provides an extensive guide on how to install and use ProtonVPN-CL
 - [ProtonVPN-CLI Usage Documentation](#protonvpn-cli-usage-documentation)
   - [Table of Contents](#table-of-contents)
   - [Installation & Updating](#installation--updating)
-    - [Installing Dependencies](#installing-dependencies)
-    - [Installing ProtonVPN-CLI](#installing-protonvpn-cli)
-    - [Updating ProtonVPN-CLI](#updating-protonvpn-cli)
-    - [Initialization](#initialization)
-    - [Uninstall](#uninstall)
-    - [Example Installation on Ubuntu 18.04](#example-installation-on-ubuntu-1804)
+    - [Installing from distribution repositories](#installing-from-distribution-repositories)
+      - [Fedora](#fedora)
+      - [CentOS & RHEL](#centos--rhel)
+    - [Installing from PyPI](#installing-from-pypi)
+      - [Installing ProtonVPN-CLI](#installing-protonvpn-cli)
+      - [Updating ProtonVPN-CLI](#updating-protonvpn-cli)
+      - [Uninstall](#uninstall)
     - [Installing in a virtual environment](#installing-in-a-virtual-environment)
       - [Install](#install)
       - [Update](#update)
       - [Uninstall](#uninstall-1)
+  - [Initialization](#initialization)
+  - [Example Installation on Ubuntu 18.04](#example-installation-on-ubuntu-1804)
   - [Commands](#commands)
     - [List of all Commands](#list-of-all-commands)
     - [Command Explanations](#command-explanations)
@@ -36,7 +39,35 @@ This document provides an extensive guide on how to install and use ProtonVPN-CL
 
 ## Installation & Updating
 
-### Installing Dependencies
+### Installing from distribution repositories
+
+For the following Linux distribution(s), install the official `protonvpn-cli` package:
+
+#### Fedora
+
+```sh
+sudo dnf install -y protonvpn-cli
+```
+
+#### CentOS & RHEL
+
+`protonvpn-cli` is available for CentOS/RHEL 7.x and 8.x via the [EPEL repositories](https://fedoraproject.org/wiki/EPEL).
+
+**For CentOS/RHEL 7.x**:
+
+```sh
+sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+sudo yum install protonvpn-cli
+```
+
+**For CentOS/RHEL 8.x**:
+
+```sh
+sudo dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+sudo dnf install -y protonvpn-cli
+```
+
+### Installing from PyPI
 
 **Dependencies:**
 
@@ -55,7 +86,7 @@ Depending on your distribution, run the appropriate following command to install
 |OpenSUSE/SLES                            | `sudo zypper in -y openvpn dialog python3-pip python3-setuptools`  |
 |Arch Linux/Manjaro                       | `sudo pacman -S openvpn dialog python-pip python-setuptools`       |
 
-### Installing ProtonVPN-CLI
+#### Installing ProtonVPN-CLI
 
 Installation happens via Python's package manager PIP.
 
@@ -63,15 +94,11 @@ Installation happens via Python's package manager PIP.
 
 `sudo pip3 install protonvpn-cli`
 
-### Updating ProtonVPN-CLI
+#### Updating ProtonVPN-CLI
 
 `sudo pip3 install protonvpn-cli --upgrade`
 
-### Initialization
-
-Before you can use ProtonVPN-CLI, you need to initialize it. Run `sudo protonvpn init` and follow the prompts on the screen.
-
-### Uninstall
+#### Uninstall
 
 If you want to uninstall ProtonVPN-CLI, run `protonvpn configure` first and purge the configuration. Then uninstall through the package manager you used for installation.
 
@@ -80,50 +107,6 @@ For PIP this would be
 `sudo pip3 uninstall protonvpn-cli`
 
 Bye Bye 😔
-
-### Example Installation on Ubuntu 18.04
-
-1. Installing dependencies
-
-   To install ProtonVPN-CLI's dependencies, open a terminal and type `sudo apt install -y dialog openvpn python3-pip python3-setuptools` and confirm with Enter. Wait for the installation to finish
-
-2. Installing ProtonVPN-CLI
-
-   To install ProtonVPN-CLI type `sudo pip3 install protonvpn-cli` in the terminal and confirm with Enter again. It should look something like this:
-
-   ![ubuntu-pip-install](https://i.imgur.com/jSuftoe.png)
-
-3. Initialize the ProtonVPN profile
-
-   Now you have access to the `protonvpn` command. Before using ProtonVPN-CLI you need to initialize your profile. To do this, type `sudo protonvpn init`
-
-   The client will ask you for your OpenVPN username and password. You can find them at https://account.protonvpn.com/account
-
-   ![openvpn-pass](https://i.imgur.com/EdZ01T9.png)
-
-   Follow the prompts and enter your OpenVPN credentials:
-
-   ![ubuntu-pass-entry](https://i.imgur.com/Vrcq2oO.png)
-
-   Next, you need to select your plan. If you are currently enjoying the 7-day free trial of ProtonVPN Plus, select `3) Plus`.
-
-   ![ubuntu-plan](https://i.imgur.com/oQpgeSo.png)
-
-   *IMPORTANT: After your trial expires, you will need to reconfigure your plan to 1) Free. To set this up, enter `sudo protonvpn configure`. Then select `2) ProtonVPN Plan`. Finally, select `1) Free`.*
-
-   Now, you need to choose which default transmission protocol you want to use. UDP is typically the faster option, while TCP is a more reliable protocol that's better suited for unstable connections and in restricted networks. The default selection is UDP.
-
-   ![ubuntu-proto](https://i.imgur.com/qmcebSO.png)
-
-   Finally, confirm your input with `y`
-
-   ![ubuntu-confirm](https://i.imgur.com/P6nRR4u.png)
-
-4. Connect to ProtonVPN
-
-   You are now ready to connect to ProtonVPN. For example, you can let ProtonVPN-CLI find the fastest server for you. Just type `sudo protonvpn connect -f` and a connection will be established.
-
-   ![ubuntu-connected](https://i.imgur.com/VJVacKe.png)
 
 ### Installing in a virtual environment
 
@@ -189,6 +172,54 @@ Now you should be able to use the protonvpn command from anywhere in the system 
 
     `sudo unlink /usr/local/bin/protonvpn`
 
+## Initialization
+
+Before you can use ProtonVPN-CLI, you need to initialize it. Run `sudo protonvpn init` and follow the prompts on the screen.
+
+## Example Installation on Ubuntu 18.04
+
+1. Installing dependencies
+
+   To install ProtonVPN-CLI's dependencies, open a terminal and type `sudo apt install -y dialog openvpn python3-pip python3-setuptools` and confirm with Enter. Wait for the installation to finish
+
+2. Installing ProtonVPN-CLI
+
+   To install ProtonVPN-CLI type `sudo pip3 install protonvpn-cli` in the terminal and confirm with Enter again. It should look something like this:
+
+   ![ubuntu-pip-install](resources/images/usage-ubuntu-pip-install.png)
+
+3. Initialize the ProtonVPN profile
+
+   Now you have access to the `protonvpn` command. Before using ProtonVPN-CLI you need to initialize your profile. To do this, type `sudo protonvpn init`
+
+   The client will ask you for your OpenVPN username and password. You can find them at https://account.protonvpn.com/account
+
+   ![openvpn-pass](resources/images/usage-openvpn-pass.png)
+
+   Follow the prompts and enter your OpenVPN credentials:
+
+   ![ubuntu-pass-entry](resources/images/usage-ubuntu-pass-entry.png)
+
+   Next, you need to select your plan. If you are currently enjoying the 7-day free trial of ProtonVPN Plus, select `3) Plus`.
+
+   ![ubuntu-plan](resources/images/usage-ubuntu-plan.png)
+
+   *IMPORTANT: After your trial expires, you will need to reconfigure your plan to 1) Free. To set this up, enter `sudo protonvpn configure`. Then select `2) ProtonVPN Plan`. Finally, select `1) Free`.*
+
+   Now, you need to choose which default transmission protocol you want to use. UDP is typically the faster option, while TCP is a more reliable protocol that's better suited for unstable connections and in restricted networks. The default selection is UDP.
+
+   ![ubuntu-proto](resources/images/usage-ubuntu-proto.png)
+
+   Finally, confirm your input with `y`
+
+   ![ubuntu-confirm](resources/images/usage-ubuntu-confirm.png)
+
+4. Connect to ProtonVPN
+
+   You are now ready to connect to ProtonVPN. For example, you can let ProtonVPN-CLI find the fastest server for you. Just type `sudo protonvpn connect -f` and a connection will be established.
+
+   ![ubuntu-connected](resources/images/usage-ubuntu-connected.png)
+
 ## Commands
 
 ### List of all Commands
@@ -230,9 +261,9 @@ To connect to a server, you always need the `connect` option (or just `c`):
 
 Running the above command will give you a menu that lets you select the country, server, and transmission protocol interactively:
 
-![country-selection](https://i.imgur.com/jjJh09J.png)
+![country-selection](resources/images/usage-country-selection.png)
 
-![server-selection](https://i.imgur.com/uXfcHMI.png)
+![server-selection](resources/images/usage-server-selection.png)
 
 If you specify a server name after `connect`, you can connect directly to the server of your choice:
 
@@ -296,13 +327,13 @@ If you want to see the status and information of your current connection, you ca
 
 `protonvpn s`
 
-![status-example](https://i.imgur.com/5tm5nOJ.png)
+![status-example](resources/images/usage-status-example.png)
 
 If you want to change the settings you selected during initialization, you can do this with the `configure` option, just follow the prompts to change your username/password, default protocol and so on:
 
 `protonvpn configure`
 
-![configuration-example](https://i.imgur.com/tHSkBxk.png)
+![configuration-example](resources/images/usage-configuration-example.png)
 
 ## Features
 
@@ -390,7 +421,7 @@ You can disable the prompt for the sudo password when using ProtonVPN-CLI.
 
 1. Enter `sudo which protonvpn` to find where the executable is installed
 
-   ![which-protonvpn](https://i.imgur.com/JjYpviI.png)
+   ![which-protonvpn](resources/images/usage-which-protonvpn.png)
 
 2. Enter `sudo visudo` to edit the sudoers file.
 
@@ -422,7 +453,7 @@ Systemd is the current init system of most major Linux distributions. This guide
 
 1. Find the location of the executable with `sudo which protonvpn`
 
-   ![which-protonvpn](https://i.imgur.com/JjYpviI.png)
+   ![which-protonvpn](resources/images/usage-which-protonvpn.png)
 
 2. Create the unit file in `/etc/systemd/system`
 

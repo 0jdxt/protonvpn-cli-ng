@@ -57,9 +57,9 @@ from docopt import docopt
 from . import connection
 from .logger import logger
 from .utils import (
-    check_root, change_file_owner, pull_server_data, make_ovpn_template,
-    check_init, set_config_value, get_config_value, is_valid_ip,
-    wait_for_network
+    check_root, change_file_owner, pull_server_data,
+    check_init, set_config_value, get_config_value,
+    is_valid_ip, wait_for_network
 )
 # Constants
 from .constants import (
@@ -142,8 +142,8 @@ def cli():
         check_init()
         configure_cli()
     elif args.get("refresh"):
+        check_init()
         pull_server_data(force=True)
-        make_ovpn_template()
     elif args.get("examples"):
         print_examples()
 
@@ -162,6 +162,7 @@ def init_cli():
             "dns_leak_protection": "1",
             "custom_dns": "None",
             "check_update_interval": "3",
+            "api_domain": "https://api.protonvpn.ch",
         }
         config["metadata"] = {
             "last_api_pull": "0",
@@ -241,7 +242,6 @@ def init_cli():
         init_config_file()
 
         pull_server_data()
-        make_ovpn_template()
 
         # Change user tier to correct value
         if user_tier == 4:
@@ -655,4 +655,3 @@ def set_split_tunnel():
 
     print()
     print("Split tunneling configuration updated.")
-    make_ovpn_template()
