@@ -13,7 +13,8 @@ macro_rules! config_dir {
 
 lazy_static! {
     // look through env vars for user
-    pub static ref USER: String = std::env::var("SUDO_USER")
+    pub static ref USER: String = std::env::var("PKEXEC_UID")
+        .or_else(|_| std::env::var("SUDO_USER"))
         .or_else(|_| std::env::var("LOGNAME"))
         .or_else(|_| std::env::var("USER"))
         .or_else(|_| std::env::var("LNAME"))

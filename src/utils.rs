@@ -108,7 +108,8 @@ impl PartialOrd for LogicalServer {
 
 impl Ord for LogicalServer {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
+        self.partial_cmp(other)
+            .expect("ordering should be based on score")
     }
 }
 
@@ -183,6 +184,7 @@ pub(crate) fn get_servers() -> Vec<LogicalServer> {
     let tier = u8::from_str_radix(&get_config_value("USER", "tier").unwrap(), 10).unwrap();
     let tier = Tier::from(tier);
 
+    // filter out by tier and online status
     server_data
         .logical_servers
         .into_iter()
@@ -215,13 +217,35 @@ pub(crate) fn set_config_value(group: &str, key: &str, value: &str) {
 #[serde(rename_all = "PascalCase")]
 struct VpnLocation {
     code: i32,
-    #[serde(rename = "ID")]
+    #[serde(rename = "IP")]
     ip: Ipv4Addr,
     lat: f64,
     long: f64,
     country: String,
     #[serde(rename = "ISP")]
     isp: String,
+}
+
+#[test]
+fn test_location_serde() {
+    let data: VpnLocation = serde_json::from_str(
+        r#"{
+        "Code": 1000,
+        "IP": "1.2.3.4",
+        "Lat": 0.0,
+        "Long": 0.0,
+        "Country": "GB",
+        "ISP": "Faketernet"
+    }"#,
+    )
+    .unwrap();
+    assert_eq!(data.code, 1000);
+    assert_eq!(data.ip, Ipv4Addr::new(1, 2, 3, 4));
+    assert_eq!(data.lat, 0.);
+    assert_eq!(data.long, 0.);
+    assert_eq!(data.country, "GB");
+    assert_eq!(data.isp, "Faketernet");
+    panic!("{:#?}", data)
 }
 
 pub(crate) async fn get_ip_info() -> Result<(Ipv4Addr, String)> {
